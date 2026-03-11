@@ -191,6 +191,37 @@ esac
         if verbose:
             print(f"[INFO] 管理脚本已存在: bot_manager.sh")
     
+    # 创建 bot0.py 启动脚本（如果不存在）
+    bot0_path = os.path.join(target_dir, 'bot0.py')
+    if not os.path.exists(bot0_path):
+        default_bot0 = '''#!/usr/bin/env python3
+"""
+嗑唠的宝子 - 飞书 Bot 启动脚本
+
+这是 Bot 的入口文件，由 bot_manager.sh 调用启动。
+你也可以直接运行: python bot0.py
+"""
+import os
+from clawdboz import Bot
+
+# 从环境变量或 config.json 读取配置
+bot = Bot()
+bot.run()
+'''
+        try:
+            with open(bot0_path, 'w', encoding='utf-8') as f:
+                f.write(default_bot0)
+            os.chmod(bot0_path, 0o755)
+            result['created'].append('bot0.py')
+            if verbose:
+                print(f"[INIT] 创建启动脚本: bot0.py")
+        except Exception as e:
+            result['errors'].append(f'bot0.py: {e}')
+    else:
+        result['existing'].append('bot0.py')
+        if verbose:
+            print(f"[INFO] 启动脚本已存在: bot0.py")
+    
     return result
 
 
@@ -207,6 +238,7 @@ def init_project(work_dir: Optional[str] = None):
     - logs/
     - .bots.md
     - bot_manager.sh
+    - bot0.py
     """
     target_dir = work_dir or os.getcwd()
     
@@ -241,6 +273,9 @@ def init_project(work_dir: Optional[str] = None):
             "notification": {
                 "enabled": True,
                 "script": "feishu_tools/notify_feishu.py"
+            },
+            "python": {
+                "venv": os.environ.get('VIRTUAL_ENV', '.venv')
             },
             "logs": {
                 "main_log": "logs/main.log",
