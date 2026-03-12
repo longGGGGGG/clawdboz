@@ -8,6 +8,16 @@ clawdboz - 嗑唠的宝子 (Clawdboz) 飞书 Bot
     bot.run()
 """
 
+import os
+
+# 读取版本号
+try:
+    _version_file = os.path.join(os.path.dirname(__file__), 'VERSION')
+    with open(_version_file, 'r') as f:
+        __version__ = f.read().strip()
+except Exception:
+    __version__ = '2.6.9'
+
 from .config import PROJECT_ROOT, CONFIG, get_project_root, load_config, get_absolute_path
 from .acp_client import ACPClient
 from .bot import LarkBot

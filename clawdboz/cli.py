@@ -20,12 +20,13 @@ from typing import Optional
 
 
 def get_version() -> str:
-    """获取版本号"""
+    """获取版本号 - 从 VERSION 文件读取"""
     try:
-        from importlib.metadata import version
-        return version("clawdboz")
+        version_file = os.path.join(os.path.dirname(__file__), 'VERSION')
+        with open(version_file, 'r') as f:
+            return f.read().strip()
     except Exception:
-        return "2.2.0"
+        return "2.6.9"
 
 
 def get_templates_dir() -> Path:
@@ -352,6 +353,20 @@ def init_project(work_dir: Optional[str] = None):
     
     # 创建 .bots.md 和 bot_manager.sh
     ensure_bot_files(target_dir, verbose=True)
+    
+    # 更新 .bots.md 中的版本号
+    bots_md_path = os.path.join(target_dir, '.bots.md')
+    if os.path.exists(bots_md_path):
+        try:
+            with open(bots_md_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+            # 替换版本号
+            version = get_version()
+            content = content.replace('v2.6.6', f'v{version}').replace('v2.6.7', f'v{version}').replace('v2.6.8', f'v{version}').replace('v2.6.9', f'v{version}')
+            with open(bots_md_path, 'w', encoding='utf-8') as f:
+                f.write(content)
+        except Exception:
+            pass
     
     print(f"[INIT] 项目初始化完成！")
     print(f"\n下一步:")
