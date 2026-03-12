@@ -13,6 +13,7 @@ import argparse
 import json
 import os
 import shutil
+import subprocess
 import sys
 from pathlib import Path
 from typing import Optional
@@ -68,35 +69,18 @@ def ensure_bot_files(target_dir: str, verbose: bool = True) -> dict:
     # 创建 .bots.md（如果不存在）
     bots_md_path = os.path.join(target_dir, '.bots.md')
     if not os.path.exists(bots_md_path):
-        default_bots_md = """# Agent 指令 - 嗑唠的宝子
-
-> 本文档是嗑唠的宝子 (Clawdboz) 的系统提示词和开发规范。
-
-## 基本信息
-
-1. 你的名字叫 **clawdboz**，中文名称叫 **嗑唠的宝子**
-2. 版本: **v2.0.0** - 模块化架构
-
-## 特殊命令
-
-用户可以通过飞书消息发送以下特殊命令：
-
-- **`/clear`** - 清除上下文：重置 MCP 上下文、清除对话历史、清除待处理的图片/文件
-- **`/compact`** - 压缩上下文：提示用户该功能需要 ACP 协议支持（当前建议使用 /clear）
-- **`Ctrl-C`** / **`/stop`** / **`中断`** - 停止当前任务：中断正在执行的对话或任务
-
-## 开发规范
-
-1. 调用 skills 或者 MCP 产生的中间临时文件，请放在 **WORKPLACE** 文件夹中
-2. 谨慎使用删除命令，如果需要删除，**向用户询问**确认
-3. 当新增功能被用户测试完，确认成功后，**git 更新版本**
-"""
+        # 从模板文件复制
+        templates_dir = get_templates_dir()
+        template_path = templates_dir / '.bots.md'
+        
         try:
-            with open(bots_md_path, 'w', encoding='utf-8') as f:
-                f.write(default_bots_md)
-            result['created'].append('.bots.md')
-            if verbose:
-                print(f"[INIT] 创建 Bot 规则文件: .bots.md")
+            if template_path.exists():
+                shutil.copy2(template_path, bots_md_path)
+                result['created'].append('.bots.md')
+                if verbose:
+                    print(f"[INIT] 创建 Bot 规则文件: .bots.md")
+            else:
+                result['errors'].append('.bots.md: 模板文件不存在')
         except Exception as e:
             result['errors'].append(f'.bots.md: {e}')
     else:
@@ -120,70 +104,7 @@ def ensure_bot_files(target_dir: str, verbose: bool = True) -> dict:
                 if verbose:
                     print(f"[INIT] 复制管理脚本: bot_manager.sh")
             else:
-                # 如果找不到模板，创建简化版本
-                default_bot_manager = """#!/bin/bash
-#
-# 飞书 Bot 管理脚本
-# 功能：启动、停止、重启、状态查看
-#
-
-BOT_NAME="feishu_bot"
-PROJECT_ROOT="$(cd "$(dirname "$0")" && pwd)"
-PID_FILE="/tmp/${BOT_NAME}_$(echo "$PROJECT_ROOT" | tr '/' '_').pid"
-
-cd "$PROJECT_ROOT" || exit 1
-
-case "$1" in
-    start)
-        if [ -f "$PID_FILE" ] && kill -0 $(cat "$PID_FILE") 2>/dev/null; then
-            echo "Bot 已在运行 (PID: $(cat $PID_FILE))"
-            exit 1
-        fi
-        echo "启动 Bot..."
-        nohup clawdboz run > logs/bot_output.log 2>&1 &
-        echo $! > "$PID_FILE"
-        echo "Bot 已启动 (PID: $!)"
-        ;;
-    stop)
-        if [ -f "$PID_FILE" ]; then
-            PID=$(cat "$PID_FILE")
-            if kill -0 "$PID" 2>/dev/null; then
-                echo "停止 Bot (PID: $PID)..."
-                kill "$PID"
-                rm -f "$PID_FILE"
-                echo "Bot 已停止"
-            else
-                echo "Bot 未运行"
-                rm -f "$PID_FILE"
-            fi
-        else
-            echo "未找到 PID 文件，Bot 可能未运行"
-        fi
-        ;;
-    restart)
-        $0 stop
-        sleep 2
-        $0 start
-        ;;
-    status)
-        if [ -f "$PID_FILE" ] && kill -0 $(cat "$PID_FILE") 2>/dev/null; then
-            echo "Bot 运行中 (PID: $(cat $PID_FILE))"
-        else
-            echo "Bot 未运行"
-        fi
-        ;;
-    *)
-        echo "用法: $0 {start|stop|restart|status}"
-        exit 1
-        ;;
-esac
-"""
-                with open(bot_manager_path, 'w', encoding='utf-8') as f:
-                    f.write(default_bot_manager)
-                os.chmod(bot_manager_path, 0o755)
-                result['created'].append('bot_manager.sh')
-                if verbose:
-                    print(f"[INIT] 创建管理脚本: bot_manager.sh")
+                result['errors'].append('bot_manager.sh: 模板文件不存在')
         except Exception as e:
             result['errors'].append(f'bot_manager.sh: {e}')
     else:
@@ -194,28 +115,19 @@ esac
     # 创建 bot0.py 启动脚本（如果不存在）
     bot0_path = os.path.join(target_dir, 'bot0.py')
     if not os.path.exists(bot0_path):
-        default_bot0 = '''#!/usr/bin/env python3
-"""
-嗑唠的宝子 - 飞书 Bot 启动脚本
-
-这是 Bot 的入口文件，由 bot_manager.sh 调用启动。
-你也可以直接运行: python bot0.py
-"""
-import os
-from clawdboz import Bot
-
-# 从 config.json 读取配置（文件由 clawdboz init 生成）
-# 支持环境变量覆盖: FEISHU_APP_ID, FEISHU_APP_SECRET
-bot = Bot(config_path="config.json")
-bot.run()
-'''
+        # 从模板文件复制
+        templates_dir = get_templates_dir()
+        template_path = templates_dir / 'bot0.py'
+        
         try:
-            with open(bot0_path, 'w', encoding='utf-8') as f:
-                f.write(default_bot0)
-            os.chmod(bot0_path, 0o755)
-            result['created'].append('bot0.py')
-            if verbose:
-                print(f"[INIT] 创建启动脚本: bot0.py")
+            if template_path.exists():
+                shutil.copy2(template_path, bot0_path)
+                os.chmod(bot0_path, 0o755)
+                result['created'].append('bot0.py')
+                if verbose:
+                    print(f"[INIT] 创建启动脚本: bot0.py")
+            else:
+                result['errors'].append('bot0.py: 模板文件不存在')
         except Exception as e:
             result['errors'].append(f'bot0.py: {e}')
     else:
@@ -224,6 +136,61 @@ bot.run()
             print(f"[INFO] 启动脚本已存在: bot0.py")
     
     return result
+
+
+def check_kimi_installation():
+    """
+    检测 Kimi CLI 安装和登录状态
+    
+    Returns:
+        tuple: (installed, logged_in, kimi_bin_path)
+    """
+    # 1. 检查 kimi 是否安装
+    kimi_bin = None
+    
+    # 尝试 which kimi
+    try:
+        result = subprocess.run(['which', 'kimi'], capture_output=True, text=True, timeout=5)
+        if result.returncode == 0 and result.stdout.strip():
+            kimi_bin = result.stdout.strip()
+    except Exception:
+        pass
+    
+    # 如果 which 找不到，检查常见路径
+    if not kimi_bin:
+        common_paths = [
+            os.path.expanduser('~/.local/bin/kimi'),
+            '/usr/local/bin/kimi',
+            '/usr/bin/kimi',
+        ]
+        for path in common_paths:
+            if os.path.isfile(path) and os.access(path, os.X_OK):
+                kimi_bin = path
+                break
+    
+    if not kimi_bin:
+        return False, False, None
+    
+    # 2. 检查 kimi 是否已登录
+    # 检查 credentials 文件是否存在 access_token
+    logged_in = False
+    credentials_paths = [
+        os.path.expanduser('~/.kimi/credentials/kimi-code.json'),
+        os.path.expanduser('~/.kimi/credentials/kimi.json'),
+    ]
+    for cred_path in credentials_paths:
+        if os.path.exists(cred_path):
+            try:
+                with open(cred_path, 'r', encoding='utf-8') as f:
+                    creds = json.load(f)
+                # 检查是否有 access_token
+                if creds.get('access_token'):
+                    logged_in = True
+                    break
+            except Exception:
+                pass
+    
+    return True, logged_in, kimi_bin
 
 
 def init_project(work_dir: Optional[str] = None):
@@ -244,6 +211,20 @@ def init_project(work_dir: Optional[str] = None):
     target_dir = work_dir or os.getcwd()
     
     print(f"[INIT] 初始化项目: {target_dir}")
+    
+    # 检测 Kimi CLI 状态
+    kimi_installed, kimi_logged_in, kimi_bin = check_kimi_installation()
+    
+    if not kimi_installed:
+        print(f"[WARN] 未检测到 Kimi CLI，请先安装:")
+        print(f"       curl -L code.kimi.com/install.sh | bash")
+        print(f"       或访问: https://platform.moonshot.cn")
+    elif not kimi_logged_in:
+        print(f"[WARN] Kimi CLI 已安装但未登录，请先登录:")
+        print(f"       {kimi_bin} auth login")
+        print(f"       或访问: https://platform.moonshot.cn")
+    else:
+        print(f"[OK] Kimi CLI 已安装并已登录: {kimi_bin}")
     
     # 创建目录
     dirs = [
@@ -276,7 +257,8 @@ def init_project(work_dir: Optional[str] = None):
                 "script": "feishu_tools/notify_feishu.py"
             },
             "python": {
-                "venv": os.environ.get('VIRTUAL_ENV', '.venv')
+                "venv": os.environ.get('VIRTUAL_ENV', '.venv'),
+                "bin": sys.executable
             },
             "logs": {
                 "main_log": "logs/main.log",
@@ -291,6 +273,9 @@ def init_project(work_dir: Optional[str] = None):
                 "mcp_config": ".kimi/mcp.json",
                 "skills_dir": ".kimi/skills"
             },
+            "kimi": {
+                "bin_dir": os.path.expanduser("~/.local/bin")
+            },
             "start_script": "bot0.py"
         }
         
@@ -298,6 +283,7 @@ def init_project(work_dir: Optional[str] = None):
             json.dump(config, f, indent=2, ensure_ascii=False)
         
         print(f"[INIT] 创建配置文件: config.json")
+        print(f"[INFO] Python 路径已配置为: {sys.executable}")
         print(f"[WARN] 请编辑 config.json，填入你的飞书应用凭证")
     else:
         print(f"[INFO] 配置文件已存在: config.json")
@@ -305,12 +291,64 @@ def init_project(work_dir: Optional[str] = None):
     # 创建 .kimi/mcp.json（如果不存在）
     mcp_path = os.path.join(target_dir, '.kimi', 'mcp.json')
     if not os.path.exists(mcp_path):
+        # 获取 feishu_tools 的实际路径
+        try:
+            import feishu_tools
+            feishu_tools_dir = os.path.dirname(feishu_tools.__file__)
+        except Exception:
+            feishu_tools_dir = os.path.join(os.path.dirname(__file__), '..', 'feishu_tools')
+        
         mcp_config = {
-            "mcpServers": {}
+            "mcpServers": {
+                "FeishuFileSender": {
+                    "type": "stdio",
+                    "command": sys.executable,
+                    "args": [
+                        os.path.join(feishu_tools_dir, "mcp_feishu_file_server.py")
+                    ],
+                    "env": {
+                        "FEISHU_APP_ID": "${FEISHU_APP_ID}",
+                        "FEISHU_APP_SECRET": "${FEISHU_APP_SECRET}"
+                    }
+                },
+                "FeishuMessageSender": {
+                    "type": "stdio",
+                    "command": sys.executable,
+                    "args": [
+                        os.path.join(feishu_tools_dir, "mcp_feishu_msg_server.py")
+                    ],
+                    "env": {
+                        "FEISHU_APP_ID": "${FEISHU_APP_ID}",
+                        "FEISHU_APP_SECRET": "${FEISHU_APP_SECRET}"
+                    }
+                }
+            }
         }
         with open(mcp_path, 'w', encoding='utf-8') as f:
             json.dump(mcp_config, f, indent=2)
         print(f"[INIT] 创建 MCP 配置: .kimi/mcp.json")
+    
+    # 复制内置 skills 到项目目录
+    pkg_kimi_dir = os.path.join(os.path.dirname(__file__), '.kimi')
+    if os.path.exists(pkg_kimi_dir):
+        # 复制 skills
+        pkg_skills_dir = os.path.join(pkg_kimi_dir, 'skills')
+        if os.path.exists(pkg_skills_dir):
+            target_skills_dir = os.path.join(target_dir, '.kimi', 'skills')
+            os.makedirs(target_skills_dir, exist_ok=True)
+            
+            for skill_name in os.listdir(pkg_skills_dir):
+                pkg_skill_path = os.path.join(pkg_skills_dir, skill_name)
+                # 跳过 auto-test，不作为内置 skill
+                if skill_name == 'auto-test':
+                    continue
+                if os.path.isdir(pkg_skill_path):
+                    target_skill_path = os.path.join(target_skills_dir, skill_name)
+                    if not os.path.exists(target_skill_path):
+                        shutil.copytree(pkg_skill_path, target_skill_path)
+                        print(f"[INIT] 复制 Skill: .kimi/skills/{skill_name}/")
+                    else:
+                        print(f"[INFO] Skill 已存在: .kimi/skills/{skill_name}/")
     
     # 创建 .bots.md 和 bot_manager.sh
     ensure_bot_files(target_dir, verbose=True)

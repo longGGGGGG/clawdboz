@@ -14,9 +14,35 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # 配置文件路径
 CONFIG_FILE="$SCRIPT_DIR/config.json"
 
-# 使用 Python 解析配置文件（如果存在）
-get_config() {
+# 使用系统 python3 读取配置（用于获取 python.bin 配置）
+_get_config() {
     python3 -c "import json; c=json.load(open('$CONFIG_FILE')); print(c$1)" 2>/dev/null
+}
+
+# 从配置文件读取 Python 路径（只从 config.json 读取）
+PYTHON_BIN=$(_get_config "['python']['bin']" 2>/dev/null)
+
+# 如果配置了相对路径，转换为绝对路径
+if [ -n "$PYTHON_BIN" ] && [ "${PYTHON_BIN:0:1}" != "/" ]; then
+    PYTHON_BIN="$SCRIPT_DIR/$PYTHON_BIN"
+fi
+
+# 验证 Python 路径是否有效
+if [ -z "$PYTHON_BIN" ]; then
+    echo "[ERROR] config.json 中未配置 python.bin" >&2
+    echo "        请在 config.json 中添加: \"python\": {\"bin\": \"/path/to/python\"}" >&2
+    exit 1
+fi
+
+if [ ! -f "$PYTHON_BIN" ] || [ ! -x "$PYTHON_BIN" ]; then
+    echo "[ERROR] 配置的 Python 路径无效: $PYTHON_BIN" >&2
+    echo "        请检查 config.json 中的 python.bin 配置" >&2
+    exit 1
+fi
+
+# 使用配置的 Python 读取其他配置
+get_config() {
+    $PYTHON_BIN -c "import json; c=json.load(open('$CONFIG_FILE')); print(c$1)" 2>/dev/null
 }
 
 # 从配置文件读取并加载虚拟环境（如果配置了）
@@ -54,10 +80,18 @@ export LARKBOT_ROOT="$PROJECT_ROOT"
 # PID 文件路径 - 放在脚本所在目录（当前目录）
 PID_FILE="$SCRIPT_DIR/${BOT_NAME}.pid"
 
-# 使用当前环境中的 Python（支持虚拟环境）
-PYTHON_BIN="${PYTHON_BIN:-$PROJECT_ROOT/.venv/bin/python}"
-
-# Kimi CLI 路径（优先环境变量，其次尝试从 PATH 查找）
+# Kimi CLI 路径（优先级: 环境变量 > config.json > which kimi > 默认路径）
+if [ -z "$KIMI_DIR" ]; then
+    # 尝试从 config.json 读取 kimi 路径
+    KIMI_CONFIG_DIR=$(get_config "['kimi']['bin_dir']" 2>/dev/null)
+    if [ -n "$KIMI_CONFIG_DIR" ]; then
+        # 支持相对路径和绝对路径
+        if [ "${KIMI_CONFIG_DIR:0:1}" != "/" ]; then
+            KIMI_CONFIG_DIR="$SCRIPT_DIR/$KIMI_CONFIG_DIR"
+        fi
+        KIMI_DIR="$KIMI_CONFIG_DIR"
+    fi
+fi
 if [ -z "$KIMI_DIR" ]; then
     # 尝试查找 kimi 可执行文件
     KIMI_BIN=$(which kimi 2>/dev/null)
@@ -506,7 +540,7 @@ test_send() {
         export REQUESTS_CA_BUNDLE="$CERT_PATH"
     fi
     
-    python -c "
+    $PYTHON_BIN -c "
 import sys
 sys.path.insert(0, '$PROJECT_ROOT')
 from src import LarkBot
@@ -539,7 +573,7 @@ test_streaming() {
     
     cd "$PROJECT_ROOT" || return 1
     
-    python -c "
+    $PYTHON_BIN -c "
 import sys
 sys.path.insert(0, '$PROJECT_ROOT')
 from src import LarkBot
@@ -930,7 +964,7 @@ check() {
         check_results="${check_results}\n[OK] MCP 上下文: 存在"
         
         # 检查是否过期
-        local context_time=$(python3 -c "import json,time,sys; d=json.load(open('$context_file')); print(d.get('timestamp',0))" 2>/dev/null || echo 0)
+        local context_time=$($PYTHON_BIN -c "import json,time,sys; d=json.load(open('$context_file')); print(d.get('timestamp',0))" 2>/dev/null || echo 0)
         local current_time=$(date +%s)
         local time_diff=$((current_time - ${context_time%.*}))
         if [ $time_diff -gt 86400 ]; then
@@ -1079,7 +1113,7 @@ init() {
         
         if [ -z "$confirm" ] || [ "$confirm" = "y" ] || [ "$confirm" = "Y" ]; then
             # 使用 Python 更新 config.json
-            python3 << PYEOF
+            $PYTHON_BIN << PYEOF
 import json
 import os
 import re
@@ -1183,7 +1217,7 @@ PYEOF
             fi
             
             if [ -z "$confirm" ] || [ "$confirm" = "y" ] || [ "$confirm" = "Y" ]; then
-                python3 << PYEOF
+                $PYTHON_BIN << PYEOF
 import json
 import os
 import re

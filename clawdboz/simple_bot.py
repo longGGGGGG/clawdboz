@@ -463,6 +463,9 @@ class Bot:
                         "enabled": True,
                         "script": "feishu_tools/notify_feishu.py"
                     },
+                    "python": {
+                        "venv": os.environ.get('VIRTUAL_ENV', '.venv')
+                    },
                     "logs": config.get('logs', {
                         "main_log": "logs/main.log",
                         "debug_log": "logs/bot_debug.log",

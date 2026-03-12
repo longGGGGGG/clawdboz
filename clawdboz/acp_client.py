@@ -33,8 +33,16 @@ class ACPClient:
 
     def _initialize(self):
         """初始化 ACP 连接，自动加载项目目录下的 MCP 配置和 skills"""
+        # 从配置获取 kimi 可执行文件路径 (使用 kimi.bin_dir)
+        kimi_bin_dir = CONFIG.get('kimi', {}).get('bin_dir')
+        if kimi_bin_dir:
+            kimi_executable = os.path.join(kimi_bin_dir, 'kimi')
+        else:
+            kimi_executable = 'kimi'
+        self._log(f"[ACP] 使用 kimi 路径: {kimi_executable}")
+        
         self.process = subprocess.Popen(
-            ['kimi', 'acp'],
+            [kimi_executable, 'acp'],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,

@@ -1,6 +1,6 @@
 # 嗑唠的宝子 (Clawdboz) - 飞书 Bot
 
-[![Version](https://img.shields.io/badge/version-2.5.4-blue.svg)](#)
+[![Version](https://img.shields.io/badge/version-2.6.6-blue.svg)](#)
 [![Python](https://img.shields.io/badge/python-3.9+-green.svg)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-MIT-yellow.svg)](#)
 
@@ -25,10 +25,12 @@
 |------|------|
 | 🤖 **AI 对话** | 基于 Kimi Code CLI 的智能对话 |
 | 📝 **流式回复** | 实时显示思考过程，Markdown 卡片美化输出 |
-| 🔧 **MCP 工具** | 支持 MCP 协议调用外部工具，可搜索/安装/创建新工具 |
+| 🔧 **MCP 工具** | 支持 MCP 协议调用外部工具，内置飞书文件/消息发送 |
 | 📦 **文件处理** | 自动下载图片/文件，支持发送文件到飞书 |
 | 💬 **群聊适配** | 自动获取群聊历史，理解对话脉络 |
+| ⏰ **定时任务** | 内置定时任务调度，支持自定义定时执行 |
 | 🔍 **运维监控** | 自动监控 Bot 状态，故障自动恢复 |
+| 🚀 **自动配置** | `init` 自动生成 MCP 配置和内置 Skills |
 
 ## 🚀 三行代码运行
 
@@ -77,7 +79,28 @@ cd larkbot
 pip install -e .
 ```
 
-### 3. 启动 Bot
+### 3. 初始化项目（推荐）
+
+安装完成后，强烈建议先初始化项目：
+
+```bash
+# 创建项目目录并进入
+mkdir my-bot && cd my-bot
+
+# 初始化项目（自动生成配置文件、MCP、Skills）
+clawdboz init
+```
+
+`clawdboz init` 会自动完成：
+- ✅ 检测 Kimi CLI 安装和登录状态
+- ✅ 创建 `config.json`，自动填入 Python 路径
+- ✅ 创建 `.kimi/mcp.json`，配置飞书 MCP 工具
+- ✅ 复制内置 Skills（scheduler、local-memory、find-skills）
+- ✅ 创建 `bot_manager.sh` 管理脚本
+- ✅ 创建 `bot0.py` 启动脚本
+- ✅ 创建 `.bots.md` Agent 指令文件
+
+### 4. 启动 Bot
 
 #### 方式一：三行代码（快速体验）
 
@@ -90,15 +113,29 @@ bot.run()
 
 #### 方式二：使用 bot_manager.sh（推荐生产使用）
 
-**1. 配置方式（二选一）**
+**1. 初始化项目**
 
-方式 A - 环境变量（推荐）：
 ```bash
-export FEISHU_APP_ID="cli_xxxxxxxxxxxxxxxx"
-export FEISHU_APP_SECRET="xxxxxxxxxxxxxxxxxxxxxx"
+# 创建项目目录并进入
+mkdir my-bot && cd my-bot
+
+# 初始化项目（自动生成配置文件、MCP、Skills）
+clawdboz init
 ```
 
-方式 B - config.json：
+`clawdboz init` 会自动完成：
+- ✅ 检测 Kimi CLI 安装和登录状态
+- ✅ 创建 `config.json`，自动填入 Python 路径
+- ✅ 创建 `.kimi/mcp.json`，配置飞书 MCP 工具
+- ✅ 复制内置 Skills（scheduler、local-memory、find-skills）
+- ✅ 创建 `bot_manager.sh` 管理脚本
+- ✅ 创建 `bot0.py` 启动脚本
+- ✅ 创建 `.bots.md` Agent 指令文件
+
+**2. 配置飞书凭证**
+
+编辑生成的 `config.json`：
+
 ```json
 {
   "feishu": {
@@ -108,7 +145,13 @@ export FEISHU_APP_SECRET="xxxxxxxxxxxxxxxxxxxxxx"
 }
 ```
 
-**2. 管理命令**
+或使用环境变量：
+```bash
+export FEISHU_APP_ID="cli_xxxxxxxxxxxxxxxx"
+export FEISHU_APP_SECRET="xxxxxxxxxxxxxxxxxxxxxx"
+```
+
+**3. 管理命令**
 
 ```bash
 # 启动 Bot
@@ -176,27 +219,51 @@ bot.run()
 
 ## 项目结构
 
+运行 `clawdboz init` 后生成的项目结构：
+
 ```
 .
-├── clawdboz/                   # 主包
-│   ├── __init__.py             # 包入口
-│   ├── simple_bot.py           # 简化版 Bot API
-│   ├── bot.py                  # Bot 核心类
-│   ├── acp_client.py           # ACP 客户端
-│   ├── config.py               # 配置管理
-│   ├── handlers.py             # 事件处理器
-│   ├── main.py                 # 程序入口
-│   ├── cli.py                  # 命令行工具
-│   └── .kimi/                  # MCP 配置
+├── .kimi/                      # Kimi CLI 配置目录
+│   ├── mcp.json               # MCP 配置（自动生成）
+│   └── skills/                # Skills 目录（自动生成）
+│       ├── find-skills/
+│       ├── local-memory/
+│       └── scheduler/
 │
-├── feishu_tools/               # 飞书 MCP 工具
-│   ├── mcp_feishu_file_server.py
-│   └── notify_feishu.py
+├── WORKPLACE/                  # 工作目录（临时文件存放）
+│   ├── user_images/           # 用户图片下载目录
+│   └── user_files/            # 用户文件下载目录
 │
-├── bot_manager.sh              # 管理脚本
-├── pyproject.toml              # 打包配置
-├── MANIFEST.in                 # 打包文件清单
-└── README.md                   # 项目说明
+├── logs/                       # 日志目录
+│   ├── main.log
+│   ├── bot_debug.log
+│   └── feishu_api.log
+│
+├── .bots.md                    # Agent 指令文件（自动生成）
+├── bot0.py                     # 启动脚本（自动生成）
+├── bot_manager.sh              # 管理脚本（自动生成）
+└── config.json                 # 配置文件（自动生成）
+```
+
+**源码结构**（安装包内）：
+
+```
+clawdboz/                       # 主包
+├── __init__.py
+├── simple_bot.py               # 简化版 Bot API
+├── bot.py                      # Bot 核心类
+├── cli.py                      # 命令行工具
+└── .kimi/                      # 内置 Skills 模板
+    └── skills/
+        ├── auto-test/
+        ├── find-skills/
+        ├── local-memory/
+        └── scheduler/
+
+feishu_tools/                   # 飞书 MCP 工具
+├── mcp_feishu_file_server.py
+├── mcp_feishu_msg_server.py
+└── notify_feishu.py
 ```
 
 ## 飞书应用配置

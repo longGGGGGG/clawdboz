@@ -613,6 +613,25 @@ notify_feishu() {
         return 1
     fi
     
+    # 防止重复通知：检查上次通知时间（5分钟内不重复发送同类型通知）
+    local notify_lock_dir="/tmp/clawdboz_notify"
+    mkdir -p "$notify_lock_dir"
+    local lock_file="$notify_lock_dir/${PROJECT_ROOT_HASH}_${command}"
+    local current_time=$(date +%s)
+    local min_interval=300  # 5分钟 = 300秒
+    
+    if [ -f "$lock_file" ]; then
+        local last_notify=$(cat "$lock_file" 2>/dev/null || echo 0)
+        local time_diff=$((current_time - last_notify))
+        if [ $time_diff -lt $min_interval ]; then
+            log_ops "INFO" "跳过重复通知 ($command): ${time_diff}秒前已发送"
+            return 0
+        fi
+    fi
+    
+    # 记录通知时间
+    echo "$current_time" > "$lock_file"
+    
     # 发送通知（后台执行，不阻塞）
     case "$command" in
         check_start)
@@ -631,10 +650,16 @@ notify_feishu() {
             ($PYTHON_BIN "$NOTIFY_SCRIPT" check_passed >/dev/null 2>&1 &)
             ;;
     esac
+    
+    log_ops "INFO" "已发送通知: $command"
 }
 
 # 检查和修复 Bot
 check() {
+    # 调试：记录调用栈
+    local caller_info="${FUNCNAME[1]}:${BASH_LINENO[0]}"
+    log_ops "DEBUG" "check() 被调用，来源: $caller_info, PID: $$, PPID: $PPID"
+    
     info "开始检查 Bot 状态..."
     
     # 记录运维检查开始
