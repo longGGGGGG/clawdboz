@@ -14,8 +14,23 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd -P)"
 # 配置文件路径
 CONFIG_FILE="$SCRIPT_DIR/config.json"
 
-# 使用系统 python3 读取配置（用于获取 python.bin 配置）
+# 使用 jq 或系统 python3 读取配置（用于获取 python.bin 配置）
 _get_config() {
+    local path="$1"
+    
+    # 检查配置文件是否存在
+    if [ ! -f "$CONFIG_FILE" ]; then
+        return 1
+    fi
+    
+    # 尝试使用 jq（如果安装了）
+    if command -v jq &> /dev/null; then
+        local jq_path=$(echo "$path" | sed "s/\['/. /g; s/'\]//g; s/^\././")
+        jq -r "$jq_path" "$CONFIG_FILE" 2>/dev/null | grep -v '^null$'
+        return 0
+    fi
+    
+    # 回退到系统 python3
     python3 -c "import json; c=json.load(open('$CONFIG_FILE')); print(c$1)" 2>/dev/null
 }
 

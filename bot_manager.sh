@@ -14,8 +14,25 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd -P)"
 # 配置文件路径
 CONFIG_FILE="$SCRIPT_DIR/config.json"
 
-# 使用 Python 解析配置文件（如果存在）
+# 使用 jq 或 Python 解析配置文件
+# 优先使用 jq（更快），否则使用系统 python3
 get_config() {
+    local path="$1"
+    
+    # 检查配置文件是否存在
+    if [ ! -f "$CONFIG_FILE" ]; then
+        return 1
+    fi
+    
+    # 尝试使用 jq（如果安装了）
+    if command -v jq &> /dev/null; then
+        # 转换路径格式：['a']['b'] -> .a.b
+        local jq_path=$(echo "$path" | sed "s/\['/. /g; s/'\]//g; s/^\././")
+        jq -r "$jq_path" "$CONFIG_FILE" 2>/dev/null | grep -v '^null$'
+        return 0
+    fi
+    
+    # 回退到 Python（系统 python3）
     python3 -c "import json; c=json.load(open('$CONFIG_FILE')); print(c$1)" 2>/dev/null
 }
 
@@ -514,7 +531,7 @@ test_send() {
         export REQUESTS_CA_BUNDLE="$CERT_PATH"
     fi
     
-    python -c "
+    $PYTHON_BIN -c "
 import sys
 sys.path.insert(0, '$PROJECT_ROOT')
 from src import LarkBot
@@ -547,7 +564,7 @@ test_streaming() {
     
     cd "$PROJECT_ROOT" || return 1
     
-    python -c "
+    $PYTHON_BIN -c "
 import sys
 sys.path.insert(0, '$PROJECT_ROOT')
 from src import LarkBot
@@ -948,7 +965,7 @@ check() {
         check_results="${check_results}\n[OK] MCP 上下文: 存在"
         
         # 检查是否过期
-        local context_time=$(python3 -c "import json,time,sys; d=json.load(open('$context_file')); print(d.get('timestamp',0))" 2>/dev/null || echo 0)
+        local context_time=$($PYTHON_BIN -c "import json,time,sys; d=json.load(open('$context_file')); print(d.get('timestamp',0))" 2>/dev/null || echo 0)
         local current_time=$(date +%s)
         local time_diff=$((current_time - ${context_time%.*}))
         if [ $time_diff -gt 86400 ]; then
@@ -1097,7 +1114,7 @@ init() {
         
         if [ -z "$confirm" ] || [ "$confirm" = "y" ] || [ "$confirm" = "Y" ]; then
             # 使用 Python 更新 config.json
-            python3 << PYEOF
+            $PYTHON_BIN << PYEOF
 import json
 import os
 import re
@@ -1201,7 +1218,7 @@ PYEOF
             fi
             
             if [ -z "$confirm" ] || [ "$confirm" = "y" ] || [ "$confirm" = "Y" ]; then
-                python3 << PYEOF
+                $PYTHON_BIN << PYEOF
 import json
 import os
 import re
