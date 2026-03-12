@@ -9,7 +9,7 @@ BOT_NAME="feishu_bot"
 BOT_MODULE="clawdboz.main"
 
 # 获取脚本所在目录（作为默认项目根目录）
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd -P)"
 
 # 配置文件路径
 CONFIG_FILE="$SCRIPT_DIR/config.json"
@@ -72,7 +72,7 @@ if [ -z "$PROJECT_ROOT" ]; then
     fi
 fi
 # 规范化路径
-PROJECT_ROOT="$(cd "$PROJECT_ROOT" && pwd)"
+PROJECT_ROOT="$(cd "$PROJECT_ROOT" && pwd -P)"
 
 # 导出项目根目录环境变量（供 Python 脚本使用）
 export LARKBOT_ROOT="$PROJECT_ROOT"

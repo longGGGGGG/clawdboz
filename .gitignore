@@ -35,6 +35,7 @@ venv/
 
 # 运行时数据
 WORKPLACE/*
+feishu_bot.pid
 
 # Skills 生成的临时文件
 .kimi/skills/*/assets/post_*/

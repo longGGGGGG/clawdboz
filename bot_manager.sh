@@ -9,7 +9,7 @@ BOT_NAME="feishu_bot"
 BOT_MODULE="clawdboz.main"
 
 # 获取脚本所在目录（作为默认项目根目录）
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd -P)"
 
 # 配置文件路径
 CONFIG_FILE="$SCRIPT_DIR/config.json"
@@ -46,15 +46,13 @@ if [ -z "$PROJECT_ROOT" ]; then
     fi
 fi
 # 规范化路径
-PROJECT_ROOT="$(cd "$PROJECT_ROOT" && pwd)"
+PROJECT_ROOT="$(cd "$PROJECT_ROOT" && pwd -P)"
 
 # 导出项目根目录环境变量（供 Python 脚本使用）
 export LARKBOT_ROOT="$PROJECT_ROOT"
 
-# PID 文件路径 - 基于项目根目录生成唯一路径（支持多实例）
-# 将项目路径中的 / 替换为 _ 来生成合法的 PID 文件名
-PROJECT_ROOT_HASH=$(echo "$PROJECT_ROOT" | tr '/' '_')
-PID_FILE="/tmp/${BOT_NAME}_${PROJECT_ROOT_HASH}.pid"
+# PID 文件路径 - 放在脚本所在目录（当前目录）
+PID_FILE="$SCRIPT_DIR/${BOT_NAME}.pid"
 
 # 使用当前环境中的 Python（支持虚拟环境）
 PYTHON_BIN="${PYTHON_BIN:-$PROJECT_ROOT/.venv/bin/python}"
@@ -616,7 +614,7 @@ notify_feishu() {
     # 防止重复通知：检查上次通知时间（5分钟内不重复发送同类型通知）
     local notify_lock_dir="/tmp/clawdboz_notify"
     mkdir -p "$notify_lock_dir"
-    local lock_file="$notify_lock_dir/${PROJECT_ROOT_HASH}_${command}"
+    local lock_file="$notify_lock_dir/$(basename "$SCRIPT_DIR")_${command}"
     local current_time=$(date +%s)
     local min_interval=300  # 5分钟 = 300秒
     
