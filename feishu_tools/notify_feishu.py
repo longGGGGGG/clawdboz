@@ -299,32 +299,75 @@ def notify_check_passed():
 
 def notify_kimi_not_logged_in(message: str):
     """通知：Kimi CLI 未登录"""
-    content = f"""⚠️ **Kimi CLI 未登录**
-
-{message}
-
-**登录步骤：**
-1. 在终端执行: `kimi auth login`
-2. 按提示完成登录
-3. 重新运行检查
-
-或访问 [Kimi 平台](https://platform.moonshot.cn) 获取帮助"""
+    # 解析消息中的 URL 和 CODE
+    import re
+    url_match = re.search(r'\|URL:([^|]+)', message)
+    code_match = re.search(r'\|CODE:([^|]+)', message)
+    
+    login_url = url_match.group(1) if url_match else None
+    device_code = code_match.group(1) if code_match else None
+    
+    # 构建通知内容
+    content_parts = ["⚠️ **Kimi CLI 未登录**", ""]
+    
+    if login_url and device_code:
+        content_parts.extend([
+            f"**登录链接:** [{login_url}]({login_url})",
+            f"",
+            f"**设备码:** `{device_code}`",
+            f"",
+            "**操作步骤：**",
+            f"1. 点击上方链接或访问: {login_url}",
+            f"2. 输入设备码: `{device_code}`",
+            "3. 完成登录授权",
+            "4. 等待 Bot 自动恢复",
+        ])
+    elif login_url:
+        content_parts.extend([
+            f"**登录链接:** [{login_url}]({login_url})",
+            f"",
+            "**操作步骤：**",
+            f"1. 点击上方链接访问登录页面",
+            "2. 按页面提示完成授权",
+            "3. 等待 Bot 自动恢复",
+        ])
+    else:
+        content_parts.extend([
+            "**登录步骤：**",
+            "1. 在终端执行: `kimi auth login`",
+            "2. 按提示完成登录",
+            "3. 重新运行检查",
+        ])
+    
+    content_parts.extend([
+        "",
+        "或访问 [Kimi 平台](https://platform.moonshot.cn) 获取帮助"
+    ])
+    
+    content = "\n".join(content_parts)
     
     return send_text_card("Kimi 未登录", content, "warning")
 
 
 def notify_kimi_not_installed(message: str):
     """通知：Kimi CLI 未安装"""
+    # 解析消息中的 INSTALL 命令
+    import re
+    install_match = re.search(r'\|INSTALL:([^|]+)', message)
+    install_cmd = install_match.group(1) if install_match else "curl -L code.kimi.com/install.sh | bash"
+    
     content = f"""❌ **Kimi CLI 未安装**
 
-{message}
-
-**安装步骤：**
+**安装命令：**
 ```bash
-curl -L code.kimi.com/install.sh | bash
+{install_cmd}
 ```
 
-安装完成后，请执行 `kimi auth login` 登录。
+**安装步骤：**
+1. 在终端执行上方安装命令
+2. 安装完成后执行: `kimi auth login`
+3. 按提示完成登录授权
+4. 等待 Bot 自动恢复
 
 或访问 [Kimi 平台](https://platform.moonshot.cn) 获取帮助"""
     

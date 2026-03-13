@@ -1000,6 +1000,8 @@ check() {
     info "检查 Kimi CLI 登录状态..."
     local kimi_login_status=0
     local kimi_login_msg=""
+    local kimi_device_code=""
+    local kimi_login_url=""
     
     # 检查 kimi 命令是否存在
     if command -v kimi &> /dev/null; then
@@ -1034,7 +1036,18 @@ except:
                 error "✗ Kimi CLI 未登录"
                 has_error=1
                 kimi_login_status=1
-                kimi_login_msg="Kimi CLI 未登录，请先执行: kimi auth login"
+                # 尝试获取登录链接和设备码
+                info "正在获取 Kimi 登录链接..."
+                local login_output=$(timeout 10 kimi auth login 2>&1 || true)
+                # 解析输出中的 URL 和设备码
+                kimi_login_url=$(echo "$login_output" | grep -oE 'https?://[^ ]+' | head -1)
+                kimi_device_code=$(echo "$login_output" | grep -oE '[A-Z0-9]{4}-[A-Z0-9]{4}' | head -1)
+                if [ -z "$kimi_device_code" ]; then
+                    # 尝试其他格式
+                    kimi_device_code=$(echo "$login_output" | grep -oE '[A-Z0-9]{8}' | head -1)
+                fi
+                
+                kimi_login_msg="Kimi CLI 未登录"
                 error_details="${error_details}\n- Kimi CLI 未登录"
                 log_ops "ERROR" "Kimi CLI 未登录"
                 check_results="${check_results}\n[FAIL] Kimi CLI: 未登录"
@@ -1043,7 +1056,18 @@ except:
             error "✗ Kimi CLI 未登录（未找到凭证文件）"
             has_error=1
             kimi_login_status=1
-            kimi_login_msg="Kimi CLI 未登录，请先执行: kimi auth login"
+            # 尝试获取登录链接和设备码
+            info "正在获取 Kimi 登录链接..."
+            local login_output=$(timeout 10 kimi auth login 2>&1 || true)
+            # 解析输出中的 URL 和设备码
+            kimi_login_url=$(echo "$login_output" | grep -oE 'https?://[^ ]+' | head -1)
+            kimi_device_code=$(echo "$login_output" | grep -oE '[A-Z0-9]{4}-[A-Z0-9]{4}' | head -1)
+            if [ -z "$kimi_device_code" ]; then
+                # 尝试其他格式
+                kimi_device_code=$(echo "$login_output" | grep -oE '[A-Z0-9]{8}' | head -1)
+            fi
+            
+            kimi_login_msg="Kimi CLI 未登录"
             error_details="${error_details}\n- Kimi CLI 未登录"
             log_ops "ERROR" "Kimi CLI 未登录（未找到凭证文件）"
             check_results="${check_results}\n[FAIL] Kimi CLI: 未登录"
@@ -1052,17 +1076,25 @@ except:
         error "✗ Kimi CLI 未安装"
         has_error=1
         kimi_login_status=2
-        kimi_login_msg="Kimi CLI 未安装，请先安装: curl -L code.kimi.com/install.sh | bash"
+        kimi_login_msg="Kimi CLI 未安装"
         error_details="${error_details}\n- Kimi CLI 未安装"
         log_ops "ERROR" "Kimi CLI 未安装"
         check_results="${check_results}\n[FAIL] Kimi CLI: 未安装"
     fi
     
-    # 如果 Kimi 未登录，发送通知
+    # 如果 Kimi 未登录，发送通知（包含登录链接和设备码）
     if [ $kimi_login_status -eq 1 ]; then
-        notify_feishu "kimi_not_logged_in" "$kimi_login_msg"
+        # 构建包含登录信息的通知消息
+        local notify_msg="${kimi_login_msg}"
+        if [ -n "$kimi_login_url" ]; then
+            notify_msg="${notify_msg}|URL:${kimi_login_url}"
+        fi
+        if [ -n "$kimi_device_code" ]; then
+            notify_msg="${notify_msg}|CODE:${kimi_device_code}"
+        fi
+        notify_feishu "kimi_not_logged_in" "$notify_msg"
     elif [ $kimi_login_status -eq 2 ]; then
-        notify_feishu "kimi_not_installed" "$kimi_login_msg"
+        notify_feishu "kimi_not_installed" "$kimi_login_msg|INSTALL:curl -L code.kimi.com/install.sh | bash"
     fi
     
     echo ""
