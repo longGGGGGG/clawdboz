@@ -329,7 +329,15 @@ def init_project(work_dir: Optional[str] = None):
             json.dump(mcp_config, f, indent=2)
         print(f"[INIT] 创建 MCP 配置: .kimi/mcp.json")
     
-    # 复制内置 skills 到项目目录
+    # 复制内置 skills 到项目目录（使用白名单机制）
+    # 只有通过确认的技能才会被复制
+    BUILTIN_SKILLS_WHITELIST = [
+        'find-skills',
+        'local-memory', 
+        'scheduler',
+        # 'auto-test',  # 已禁用，需要手动安装
+    ]
+    
     pkg_kimi_dir = os.path.join(os.path.dirname(__file__), '.kimi')
     if os.path.exists(pkg_kimi_dir):
         # 复制 skills
@@ -340,8 +348,8 @@ def init_project(work_dir: Optional[str] = None):
             
             for skill_name in os.listdir(pkg_skills_dir):
                 pkg_skill_path = os.path.join(pkg_skills_dir, skill_name)
-                # 跳过 auto-test，不作为内置 skill
-                if skill_name == 'auto-test':
+                # 只在白名单中的技能才会被复制
+                if skill_name not in BUILTIN_SKILLS_WHITELIST:
                     continue
                 if os.path.isdir(pkg_skill_path):
                     target_skill_path = os.path.join(target_skills_dir, skill_name)

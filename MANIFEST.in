@@ -16,3 +16,6 @@ global-exclude __pycache__
 global-exclude *.py[co]
 global-exclude .DS_Store
 global-exclude *.so
+
+# 排除 auto-test skill（不在白名单中，需要手动安装）
+recursive-exclude clawdboz/.kimi/skills/auto-test *
